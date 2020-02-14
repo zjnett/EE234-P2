@@ -1,41 +1,40 @@
 .text
 .global main
 
-@ NOT DONE
-
 .equ LED_DATA, 0x41210000
 .equ SW_DATA, 0x41220000
 
 main:
 	loop:
-		ldr r0,=0x00000020 @ load # of cycles in each PWM window
-		ldr r1,=0x00000001 @ load # of high cycles in window
+		ldr r0,=#256 @ load # of cycles in each PWM window (WINDOW)
+		ldr r2,=SW_DATA
+		ldr r1,[r2] @ load # of high cycles in window (PERIOD)
 		bl soft_pwm
 	b loop
 
 soft_pwm:
-	sub r2,r0,r1 @ place r0 - r1 into r2
-	@ turn LED on for number of delay cycles
-	b led_on_counter
-	@ turn LED off for remainder of cycles, r0-r1
-	b led_off_counter
+	@count from r0 to 0
+	mov r6,lr @ backup lr to r6
+	cmp r1,#0 @ check switch is not 0
+	ble terminate
+	subs r0,r0,#1
+		mov r4,r0 @ back up r0 to r4
+		mov r5,r1 @ back up r1 to r5
+		cmp r0,r1 @compare counter to our period r0 < r1
+			mov r14,r15 @ lr = pc
+			blt led0_on
+			mov r14,r15 @ lr = pc
+			bge led0_off
+		mov lr,r6 @ restore lr
+		mov r0,r4
+		mov r1,r5 @ restore r0 and r1
+		cmp r0,#0
+	bne soft_pwm @ if not 0, branch back to soft_pwm
 	bx lr
 
-led_on_counter:
-	mov r4,r1 @ backup r1 to r4
-	bl led0_on
-	mov r1,r4 @ restore r1
-	subs r1,r1,#1
-	bne led_on_counter
-	bx lr
-
-led_off_counter:
-	mov r5,r2 @ backup r2 to r5
+terminate:
 	bl led0_off
-	mov r2,r5 @ restore r2 from r5
-	subs r2,r2,#1
-	bne led_off_counter
-	bx lr
+	b loop
 
 led0_on:
 	ldr r1, =LED_DATA
@@ -59,3 +58,5 @@ led0_toggle:
 	bx lr		@return from subroutine
 
 .end
+
+
